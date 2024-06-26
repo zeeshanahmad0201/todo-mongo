@@ -90,6 +90,7 @@ func updateToDo(todo *model.ToDo) string {
 	return "Task updated successfully"
 }
 
+// delete the todo by task id
 func deleteToDo(id string) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
