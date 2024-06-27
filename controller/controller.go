@@ -33,20 +33,20 @@ func initMongo() {
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
-			Message:         "Failed to connect to MongoDB",
 			PrintStackTrace: true,
 			Exit:            true,
 		})
+		return
 	}
 
 	// Check the connection
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
-			Message:         "Failed to ping MongoDB",
 			PrintStackTrace: true,
 			Exit:            true,
 		})
+		return
 	}
 
 	collection = client.Database(dbName).Collection(collectionName)
@@ -62,7 +62,6 @@ func addTodo(todo *model.ToDo) string {
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
-			Message:         "Unable to add ToDo",
 			PrintStackTrace: true,
 		})
 		return "Unable to add Task"
@@ -82,7 +81,6 @@ func updateToDo(todo *model.ToDo) string {
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
-			Message:         "Unable to update ToDo",
 			PrintStackTrace: true,
 		})
 		return "Unable to update Task"
@@ -100,7 +98,6 @@ func deleteToDo(id string) string {
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
-			Message:         "Invalid ID",
 			PrintStackTrace: true,
 		})
 		return "Invalid task ID"
@@ -112,12 +109,71 @@ func deleteToDo(id string) string {
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
-			Message:         "Unable to delete Todo",
 			PrintStackTrace: true,
 		})
 		return "Unable to delete Task"
 	}
 	return "Task deleted successfully"
+}
+
+// get task based on id
+func getTodo(id string) *model.ToDo {
+	ctx, cancel := common.CreateContext(10 * time.Second)
+	defer cancel()
+
+	// Convert the string ID to ObjectID
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		common.HandleError(err, common.ErrorHandlerConfig{
+			PrintStackTrace: true,
+		})
+		return nil
+	}
+
+	// Create a filter to search for the document by _id
+	filter := bson.M{"_id": objID}
+
+	// Find the document and decode it into the ToDo struct
+	var todo *model.ToDo
+	err = collection.FindOne(ctx, filter).Decode(&todo)
+	if err != nil {
+		common.HandleError(err)
+		return nil
+	}
+
+	return todo
+}
+
+func getAllToDos() []primitive.M {
+	ctx, cancel := common.CreateContext(10 * time.Second)
+	defer cancel()
+
+	cursor, err := collection.Find(ctx, bson.D{{}})
+	if err != nil {
+		common.HandleError(err)
+		return nil
+	}
+
+	defer cursor.Close(ctx)
+
+	var todos []primitive.M
+
+	for cursor.Next(ctx) {
+		var todo bson.M
+		err := cursor.Decode(&todo)
+		if err != nil {
+			return nil
+		}
+		todos = append(todos, todo)
+	}
+
+	// check for error that may have occured during iteration
+	if err := cursor.Err(); err != nil {
+		common.HandleError(err)
+		return nil
+	}
+
+	return todos
 }
 
 func closeMongo() {

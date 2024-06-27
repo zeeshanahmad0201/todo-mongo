@@ -18,7 +18,7 @@ type ErrorHandlerConfig struct {
 // DefaultErrorHandlerConfig provides default values for error handler configuration.
 var DefaultErrorHandlerConfig = ErrorHandlerConfig{
 	Message:         "",
-	Exit:            true,
+	Exit:            false,
 	PrintStackTrace: true,
 }
 
