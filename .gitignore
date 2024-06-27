@@ -1,2 +1,2 @@
-.env
-.history
+# Ignore all the files with extension .
+.*
