@@ -17,7 +17,7 @@ import (
 var collection *mongo.Collection
 var client *mongo.Client
 
-func initMongo() {
+func InitMongo() {
 	fmt.Println("initMongo Called")
 	connectionUrl := os.Getenv("DB_URI")
 	dbName := os.Getenv("DB_NAME")
@@ -54,7 +54,7 @@ func initMongo() {
 }
 
 // add new ToDo in the collection
-func addTodo(todo *model.ToDo) string {
+func AddTodo(todo *model.ToDo) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -70,7 +70,7 @@ func addTodo(todo *model.ToDo) string {
 }
 
 // update existing ToDo in the collection
-func updateToDo(todo *model.ToDo) string {
+func UpdateToDo(todo *model.ToDo) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -89,7 +89,7 @@ func updateToDo(todo *model.ToDo) string {
 }
 
 // delete the todo by task id
-func deleteToDo(id string) string {
+func DeleteToDo(id string) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -117,7 +117,7 @@ func deleteToDo(id string) string {
 }
 
 // get task based on id
-func getTodo(id string) *model.ToDo {
+func GetTodo(id string) (*model.ToDo, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -127,7 +127,7 @@ func getTodo(id string) *model.ToDo {
 		common.HandleError(err, common.ErrorHandlerConfig{
 			PrintStackTrace: true,
 		})
-		return nil
+		return nil, err
 	}
 
 	// Create a filter to search for the document by _id
@@ -138,13 +138,16 @@ func getTodo(id string) *model.ToDo {
 	err = collection.FindOne(ctx, filter).Decode(&todo)
 	if err != nil {
 		common.HandleError(err)
-		return nil
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
 	}
 
-	return todo
+	return todo, err
 }
 
-func getAllToDos() []primitive.M {
+func GetAllToDos() []primitive.M {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -176,7 +179,7 @@ func getAllToDos() []primitive.M {
 	return todos
 }
 
-func closeMongo() {
+func CloseMongo() {
 	if client != nil {
 		err := client.Disconnect(context.TODO())
 		common.HandleError(err, common.ErrorHandlerConfig{
