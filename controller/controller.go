@@ -147,14 +147,14 @@ func GetTodo(id string) (*model.ToDo, error) {
 	return todo, err
 }
 
-func GetAllToDos() []primitive.M {
+func GetAllToDos() ([]primitive.M, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
 	cursor, err := collection.Find(ctx, bson.D{{}})
 	if err != nil {
 		common.HandleError(err)
-		return nil
+		return nil, err
 	}
 
 	defer cursor.Close(ctx)
@@ -165,7 +165,7 @@ func GetAllToDos() []primitive.M {
 		var todo bson.M
 		err := cursor.Decode(&todo)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		todos = append(todos, todo)
 	}
@@ -173,10 +173,10 @@ func GetAllToDos() []primitive.M {
 	// check for error that may have occured during iteration
 	if err := cursor.Err(); err != nil {
 		common.HandleError(err)
-		return nil
+		return nil, err
 	}
 
-	return todos
+	return todos, nil
 }
 
 func CloseMongo() {
