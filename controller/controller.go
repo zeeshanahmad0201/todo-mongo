@@ -70,26 +70,27 @@ func AddTodo(todo *model.ToDo) string {
 }
 
 // update existing ToDo in the collection
-func UpdateToDo(todo *model.ToDo) string {
+func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
 	filter := bson.M{"_id": todo.ID}
 	update := bson.M{"$set": todo}
 
-	_, err := collection.UpdateOne(ctx, filter, update)
+	result, err := collection.UpdateOne(ctx, filter, update)
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
 			PrintStackTrace: true,
 		})
-		return "Unable to update Task"
+		return nil, err
 	}
-	return "Task updated successfully"
+
+	return result, nil
 }
 
 // delete the todo by task id
-func DeleteToDo(id string) string {
+func DeleteToDo(id string) (*mongo.DeleteResult, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -100,20 +101,20 @@ func DeleteToDo(id string) string {
 		common.HandleError(err, common.ErrorHandlerConfig{
 			PrintStackTrace: true,
 		})
-		return "Invalid task ID"
+		return nil, err
 	}
 
 	filter := bson.M{"_id": obID}
 
-	_, err = collection.DeleteOne(ctx, filter)
+	result, err := collection.DeleteOne(ctx, filter)
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
 			PrintStackTrace: true,
 		})
-		return "Unable to delete Task"
+		return nil, err
 	}
-	return "Task deleted successfully"
+	return result, nil
 }
 
 // get task based on id
