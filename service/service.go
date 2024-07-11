@@ -108,3 +108,26 @@ func DeleteOneTodo(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(result)
 }
+
+func CreateOneTodo(w http.ResponseWriter, r *http.Request) {
+	var todo *model.ToDo
+
+	err := json.NewDecoder(r.Body).Decode(&todo)
+
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if todo.Title == "" {
+		http.Error(w, "Title can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	err = controller.CreateOneTodo(todo)
+
+	if err != nil {
+		http.Error(w, "Unable to add todo", http.StatusInternalServerError)
+		return
+	}
+}
