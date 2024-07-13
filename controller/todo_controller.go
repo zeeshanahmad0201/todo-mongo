@@ -11,14 +11,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var collection *mongo.Collection = database.ToDoCollection
+var todoCollection *mongo.Collection = database.ToDoCollection
 
 // add new ToDo in the collection
 func AddTodo(todo *model.ToDo) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	_, err := collection.InsertOne(ctx, todo)
+	_, err := todoCollection.InsertOne(ctx, todo)
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
@@ -38,7 +38,7 @@ func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 	todo.UpdatedOn = time.Now()
 	update := bson.M{"$set": todo}
 
-	result, err := collection.UpdateOne(ctx, filter, update)
+	result, err := todoCollection.UpdateOne(ctx, filter, update)
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
@@ -67,7 +67,7 @@ func DeleteToDo(id string) (*mongo.DeleteResult, error) {
 
 	filter := bson.M{"_id": obID}
 
-	result, err := collection.DeleteOne(ctx, filter)
+	result, err := todoCollection.DeleteOne(ctx, filter)
 
 	if err != nil {
 		common.HandleError(err, common.ErrorHandlerConfig{
@@ -97,7 +97,7 @@ func GetTodo(id string) (*model.ToDo, error) {
 
 	// Find the document and decode it into the ToDo struct
 	var todo *model.ToDo
-	err = collection.FindOne(ctx, filter).Decode(&todo)
+	err = todoCollection.FindOne(ctx, filter).Decode(&todo)
 	if err != nil {
 		common.HandleError(err)
 		if err == mongo.ErrNoDocuments {
@@ -113,7 +113,7 @@ func GetAllToDos() ([]primitive.M, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.D{{}})
+	cursor, err := todoCollection.Find(ctx, bson.D{{}})
 	if err != nil {
 		common.HandleError(err)
 		return nil, err
@@ -148,7 +148,7 @@ func CreateOneTodo(todo *model.ToDo) error {
 	todo.ID = primitive.NewObjectID()
 	todo.AddedOn = time.Now()
 
-	_, err := collection.InsertOne(ctx, todo)
+	_, err := todoCollection.InsertOne(ctx, todo)
 
 	if err != nil {
 		common.HandleError(err)

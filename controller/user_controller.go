@@ -2,17 +2,22 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/zeeshanahmad0201/todo-mongo/common"
 	"github.com/zeeshanahmad0201/todo-mongo/database"
+	"github.com/zeeshanahmad0201/todo-mongo/helpers"
 	"github.com/zeeshanahmad0201/todo-mongo/model"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var collection *mongo.Collection = database.UserCollection
+var userCollection *mongo.Collection = database.UserCollection
 
 // Encrypt the password before it is stored in the DB
 func HashPassword(password string) string {
@@ -42,7 +47,7 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 	return isCorrect, msg
 }
 
-func SignUp(w http.ResponseWriter, r *http.Request) {
+func SignUp(w http.ResponseWriter, r *http.Request) error {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -52,6 +57,41 @@ func SignUp(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		common.HandleError(err)
-		return
+		return err
 	}
+
+	validate := validator.New()
+
+	err = validate.Struct(user)
+
+	if err != nil {
+		for _, err := range err.(validator.ValidationErrors) {
+			common.HandleError(err)
+			return err
+		}
+	}
+
+	emailFilter := bson.M{"email": user.Email}
+	count, err := todoCollection.CountDocuments(ctx, emailFilter)
+
+	if err != nil {
+		common.HandleError(err)
+		return err
+	}
+
+	if count > 0 {
+		return fmt.Errorf("Email already exists!")
+	}
+
+	password := HashPassword(*user.Password)
+	user.Password = &password
+
+	user.AddedOn, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	user.UpdatedOn, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	user.ID = primitive.NewObjectID()
+	user.UserID = user.ID.Hex()
+	token, refreshToken, err := helpers.GenerateTokens(*user.Name, *user.Email, user.UserID)
+	user.Token = &token
+	user.RefreshToken = &refreshToken
+
 }
