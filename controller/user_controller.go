@@ -141,6 +141,8 @@ func Login(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("Something went wrong. Please try again later!")
 	}
 
+	helpers.U
+
 	return nil
 
 }
