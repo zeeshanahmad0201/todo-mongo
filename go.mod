@@ -3,6 +3,7 @@ module github.com/zeeshanahmad0201/todo-mongo
 go 1.22.4
 
 require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1

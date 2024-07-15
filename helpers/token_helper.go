@@ -4,9 +4,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/zeeshanahmad0201/todo-mongo/common"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type SignedDetails struct {
@@ -51,4 +51,14 @@ func GenerateTokens(name string, email string, userId string) (token string, ref
 	}
 
 	return token, refreshToken, nil
+}
+
+func VerifyPassword(userPassword string, providedPassword string) (bool, error) {
+	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
