@@ -80,7 +80,7 @@ func SignUp(w http.ResponseWriter, r *http.Request) (*mongo.InsertOneResult, err
 	}
 
 	if count > 0 {
-		err := fmt.Errorf("Email already exists!")
+		err := fmt.Errorf("email already exists")
 		common.HandleError(err)
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func SignUp(w http.ResponseWriter, r *http.Request) (*mongo.InsertOneResult, err
 	user.UpdatedOn, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 	user.ID = primitive.NewObjectID()
 	user.UserID = user.ID.Hex()
-	token, refreshToken, err := helpers.GenerateTokens(*user.Name, *user.Email, user.UserID)
+	token, refreshToken, _ := helpers.GenerateTokens(*user.Name, *user.Email, user.UserID)
 	user.Token = &token
 	user.RefreshToken = &refreshToken
 
@@ -124,24 +124,24 @@ func Login(w http.ResponseWriter, r *http.Request) error {
 
 	if err != nil {
 		common.HandleError(err)
-		return fmt.Errorf("Invalid email/password")
+		return fmt.Errorf("invalid email/password")
 	}
 
 	validPass, err := helpers.VerifyPassword(*user.Password, *foundUser.Password)
 
 	if !validPass {
 		common.HandleError(err)
-		return fmt.Errorf("Invalid email/password")
+		return fmt.Errorf("invalid email/password")
 	}
 
-	token, refreshToken, err := helpers.GenerateTokens(*foundUser.Name, *foundUser.Email, *&foundUser.UserID)
+	token, refreshToken, err := helpers.GenerateTokens(*foundUser.Name, *foundUser.Email, foundUser.UserID)
 
 	if err != nil {
 		common.HandleError(err)
-		return fmt.Errorf("Something went wrong. Please try again later!")
+		return fmt.Errorf("something went wrong, please try again later")
 	}
 
-	helpers.U
+	helpers.UpdateAllTokens(token, refreshToken, foundUser.UserID)
 
 	return nil
 

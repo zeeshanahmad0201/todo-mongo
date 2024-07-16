@@ -4,8 +4,13 @@ import (
 	"os"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/zeeshanahmad0201/todo-mongo/common"
+	"github.com/zeeshanahmad0201/todo-mongo/database"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -61,4 +66,34 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, error) 
 	}
 
 	return true, nil
+}
+
+// Renews the user tokens when they login
+func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) error {
+	var userCollection *mongo.Collection = database.UserCollection
+
+	ctx, cancel := common.CreateContext(10 * time.Second)
+	defer cancel()
+
+	var updateObj primitive.D
+
+	updateObj = append(updateObj, bson.E{Key: "token", Value: signedToken})
+	updateObj = append(updateObj, bson.E{Key: "refresh_token", Value: signedRefreshToken})
+	updateObj = append(updateObj, bson.E{Key: "updated_on", Value: common.GetCurrentTimeStamp()})
+
+	filter := bson.M{"user_id": userId}
+	upsert := true
+	opt := options.UpdateOptions{
+		Upsert: &upsert,
+	}
+
+	_, err := userCollection.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: updateObj}}, &opt)
+
+	if err != nil {
+		common.HandleError(err)
+		return err
+	}
+
+	return nil
+
 }
