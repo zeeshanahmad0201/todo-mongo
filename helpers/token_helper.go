@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 type SignedDetails struct {
 	Name   string
 	Email  string
-	userId string
+	UserId string
 	jwt.StandardClaims
 }
 
@@ -29,7 +30,7 @@ func GenerateTokens(name string, email string, userId string) (token string, ref
 	claims := &SignedDetails{
 		Email:  email,
 		Name:   name,
-		userId: userId,
+		UserId: userId,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 		},
@@ -95,5 +96,25 @@ func UpdateAllTokens(signedToken string, signedRefreshToken string, userId strin
 	}
 
 	return nil
+}
 
+func ValidateToken(clientToken string) (claims *SignedDetails, err error) {
+	SECRET_KEY := os.Getenv("SECRET_KEY")
+	token, err := jwt.ParseWithClaims(clientToken, &SignedDetails{}, func(t *jwt.Token) (interface{}, error) { return []byte(SECRET_KEY), nil })
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*SignedDetails)
+
+	if !ok {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	if claims.ExpiresAt < time.Now().Local().Unix() {
+		return nil, fmt.Errorf("token is expired")
+	}
+
+	return claims, nil
 }
