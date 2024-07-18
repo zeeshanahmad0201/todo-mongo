@@ -105,44 +105,36 @@ func SignUp(w http.ResponseWriter, r *http.Request) (*mongo.InsertOneResult, err
 	return result, nil
 }
 
-func Login(w http.ResponseWriter, r *http.Request) error {
+func Login(user *model.User) (*model.User, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	var user *model.User
 	var foundUser *model.User
 
-	err := json.NewDecoder(r.Body).Decode(&user)
-
-	if err != nil {
-		common.HandleError(err)
-		return err
-	}
-
 	filter := bson.M{"email": user.Email}
-	err = userCollection.FindOne(ctx, filter).Decode(&foundUser)
+	err := userCollection.FindOne(ctx, filter).Decode(&foundUser)
 
 	if err != nil {
 		common.HandleError(err)
-		return fmt.Errorf("invalid email/password")
+		return nil, fmt.Errorf("invalid email/password")
 	}
 
 	validPass, err := helpers.VerifyPassword(*user.Password, *foundUser.Password)
 
 	if !validPass {
 		common.HandleError(err)
-		return fmt.Errorf("invalid email/password")
+		return nil, fmt.Errorf("invalid email/password")
 	}
 
 	token, refreshToken, err := helpers.GenerateTokens(*foundUser.Name, *foundUser.Email, foundUser.UserID)
 
 	if err != nil {
 		common.HandleError(err)
-		return fmt.Errorf("something went wrong, please try again later")
+		return nil, fmt.Errorf("something went wrong, please try again later")
 	}
 
 	helpers.UpdateAllTokens(token, refreshToken, foundUser.UserID)
 
-	return nil
+	return foundUser, nil
 
 }
