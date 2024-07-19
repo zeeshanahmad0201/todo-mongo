@@ -1,12 +1,9 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/zeeshanahmad0201/todo-mongo/common"
 	"github.com/zeeshanahmad0201/todo-mongo/database"
 	"github.com/zeeshanahmad0201/todo-mongo/helpers"
@@ -14,95 +11,55 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var userCollection *mongo.Collection = database.UserCollection
 
-// Encrypt the password before it is stored in the DB
-func HashPassword(password string) string {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-
-	if err != nil {
-		common.HandleError(err, common.ErrorHandlerConfig{
-			Exit: true,
-		})
-	}
-
-	return string(bytes)
-}
-
-// Validates and verifies the password in the DB
-func VerifyPassword(userPassword string, providedPassword string) (bool, string) {
-	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
-	isCorrect := true
-	msg := ""
-
-	if err != nil {
-		common.HandleError(err)
-		isCorrect = false
-		msg = "email or password is incorrect"
-	}
-
-	return isCorrect, msg
-}
-
-func SignUp(w http.ResponseWriter, r *http.Request) (*mongo.InsertOneResult, error) {
+func SignUp(user *model.User) error {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	var user *model.User
-
-	err := json.NewDecoder(r.Body).Decode(&user)
-
-	if err != nil {
-		common.HandleError(err)
-		return nil, err
-	}
-
-	validate := validator.New()
-
-	err = validate.Struct(user)
-
-	if err != nil {
-		for _, err := range err.(validator.ValidationErrors) {
-			common.HandleError(err)
-			return nil, err
-		}
-	}
-
+	// Check if email already exists
 	emailFilter := bson.M{"email": user.Email}
-	count, err := todoCollection.CountDocuments(ctx, emailFilter)
+	count, err := userCollection.CountDocuments(ctx, emailFilter)
 
 	if err != nil {
 		common.HandleError(err)
-		return nil, err
+		return fmt.Errorf("error checking email existence: %w", err)
 	}
 
 	if count > 0 {
 		err := fmt.Errorf("email already exists")
 		common.HandleError(err)
-		return nil, err
+		return err
 	}
 
-	password := HashPassword(*user.Password)
-	user.Password = &password
+	// Hash password
+	hashedPassword := helpers.HashPassword(*user.Password)
+	user.Password = &hashedPassword
 
-	user.AddedOn, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-	user.UpdatedOn, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	// Set timestamps
+	user.AddedOn = *common.GetCurrentTimeStamp()
+	user.UpdatedOn = *common.GetCurrentTimeStamp()
+
+	// Generate IDs and tokens
 	user.ID = primitive.NewObjectID()
 	user.UserID = user.ID.Hex()
-	token, refreshToken, _ := helpers.GenerateTokens(*user.Name, *user.Email, user.UserID)
+	token, refreshToken, err := helpers.GenerateTokens(*user.Name, *user.Email, user.UserID)
+	if err != nil {
+
+		return fmt.Errorf("error generating tokens: %w", err)
+	}
 	user.Token = &token
 	user.RefreshToken = &refreshToken
 
-	result, err := userCollection.InsertOne(ctx, user)
+	// Insert user into database
+	_, err = userCollection.InsertOne(ctx, user)
 	if err != nil {
-		common.HandleError(err)
-		return nil, err
+		return fmt.Errorf("error inserting user: %w", err)
 	}
 
-	return result, nil
+	return nil
 }
 
 func Login(user *model.User) (*model.User, error) {
@@ -119,7 +76,7 @@ func Login(user *model.User) (*model.User, error) {
 		return nil, fmt.Errorf("invalid email/password")
 	}
 
-	validPass, err := helpers.VerifyPassword(*user.Password, *foundUser.Password)
+	validPass, err := helpers.VerifyPassword(user.Password, foundUser.Password)
 
 	if !validPass {
 		common.HandleError(err)

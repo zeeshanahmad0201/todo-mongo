@@ -9,7 +9,8 @@ func InitRouter() *mux.Router {
 	r := mux.NewRouter()
 
 	// Auth routes
-	r.HandleFunc("/login", service.Login).Methods("GET")
+	r.HandleFunc("/login", service.Login).Methods("POST")
+	r.HandleFunc("/signup", service.SignUp).Methods("POST")
 
 	r.HandleFunc("/todos", service.GetAllToDos).Methods("GET")
 	r.HandleFunc("/todos/{id}", service.GetOneTodo).Methods("GET")

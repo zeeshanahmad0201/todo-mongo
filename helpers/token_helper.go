@@ -12,7 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type SignedDetails struct {
@@ -57,16 +56,6 @@ func GenerateTokens(name string, email string, userId string) (token string, ref
 	}
 
 	return token, refreshToken, nil
-}
-
-func VerifyPassword(userPassword string, providedPassword string) (bool, error) {
-	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPassword))
-
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
 }
 
 // Renews the user tokens when they login
