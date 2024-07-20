@@ -11,12 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var todoCollection *mongo.Collection = database.ToDoCollection
-
 // add new ToDo in the collection
 func AddTodo(todo *model.ToDo) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
+
+	todoCollection := database.GetCollection("todos")
 
 	_, err := todoCollection.InsertOne(ctx, todo)
 
@@ -33,6 +33,8 @@ func AddTodo(todo *model.ToDo) string {
 func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
+
+	todoCollection := database.GetCollection("todos")
 
 	filter := bson.M{"_id": todo.ID}
 	todo.UpdatedOn = time.Now()
@@ -67,6 +69,8 @@ func DeleteToDo(id string) (*mongo.DeleteResult, error) {
 
 	filter := bson.M{"_id": obID}
 
+	todoCollection := database.GetCollection("todos")
+
 	result, err := todoCollection.DeleteOne(ctx, filter)
 
 	if err != nil {
@@ -97,6 +101,7 @@ func GetTodo(id string) (*model.ToDo, error) {
 
 	// Find the document and decode it into the ToDo struct
 	var todo *model.ToDo
+	todoCollection := database.GetCollection("todos")
 	err = todoCollection.FindOne(ctx, filter).Decode(&todo)
 	if err != nil {
 		common.HandleError(err)
@@ -113,6 +118,7 @@ func GetAllToDos() ([]primitive.M, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
+	todoCollection := database.GetCollection("todos")
 	cursor, err := todoCollection.Find(ctx, bson.D{{}})
 	if err != nil {
 		common.HandleError(err)
@@ -148,6 +154,7 @@ func CreateOneTodo(todo *model.ToDo) error {
 	todo.ID = primitive.NewObjectID()
 	todo.AddedOn = time.Now()
 
+	todoCollection := database.GetCollection("todos")
 	_, err := todoCollection.InsertOne(ctx, todo)
 
 	if err != nil {

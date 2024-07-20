@@ -19,16 +19,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(user); err != nil {
-		var validationErrors []string
-		for _, err := range err.(validator.ValidationErrors) {
-			validationErrors = append(validationErrors, err.Error())
-		}
-		http.Error(w, "Validation failed: "+strings.Join(validationErrors, ", "), http.StatusBadRequest)
-		return
-	}
-
 	if user.Email == nil || user.Password == nil || *user.Email == "" || *user.Password == "" {
 		http.Error(w, "Email and password are required", http.StatusBadRequest)
 		return

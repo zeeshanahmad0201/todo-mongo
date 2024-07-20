@@ -10,7 +10,6 @@ import (
 	"github.com/zeeshanahmad0201/todo-mongo/database"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -60,7 +59,7 @@ func GenerateTokens(name string, email string, userId string) (token string, ref
 
 // Renews the user tokens when they login
 func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) error {
-	var userCollection *mongo.Collection = database.UserCollection
+	userCollection := database.GetCollection("users")
 
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()

@@ -10,14 +10,13 @@ import (
 	"github.com/zeeshanahmad0201/todo-mongo/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
-
-var userCollection *mongo.Collection = database.UserCollection
 
 func SignUp(user *model.User) error {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
+
+	userCollection := database.GetCollection("users")
 
 	// Check if email already exists
 	emailFilter := bson.M{"email": user.Email}
@@ -65,6 +64,8 @@ func SignUp(user *model.User) error {
 func Login(user *model.User) (*model.User, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
+
+	userCollection := database.GetCollection("users")
 
 	var foundUser *model.User
 

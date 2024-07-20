@@ -6,6 +6,7 @@ import (
 )
 
 func InitRouter() *mux.Router {
+
 	r := mux.NewRouter()
 
 	// Auth routes
