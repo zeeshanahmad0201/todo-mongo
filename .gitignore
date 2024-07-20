@@ -1,2 +1,5 @@
-# Ignore all the files with extension .
-.*
+
+.env
+
+main
+todo-mongo
