@@ -72,6 +72,10 @@ func GetCollection(collectionName string) *mongo.Collection {
 	return client.Database(dbName).Collection(collectionName)
 }
 
+func GetTodoCollection() *mongo.Collection {
+	return GetCollection("todos")
+}
+
 func CloseMongo() {
 	if clientInstance != nil {
 		err := clientInstance.Disconnect(context.TODO())

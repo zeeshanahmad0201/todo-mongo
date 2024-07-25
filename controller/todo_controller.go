@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/zeeshanahmad0201/todo-mongo/common"
@@ -16,7 +17,7 @@ func AddTodo(todo *model.ToDo) string {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	todoCollection := database.GetCollection("todos")
+	todoCollection := database.GetTodoCollection()
 
 	_, err := todoCollection.InsertOne(ctx, todo)
 
@@ -34,7 +35,7 @@ func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	todoCollection := database.GetCollection("todos")
+	todoCollection := database.GetTodoCollection()
 
 	filter := bson.M{"_id": todo.ID}
 	todo.UpdatedOn = time.Now()
@@ -69,7 +70,7 @@ func DeleteToDo(id string) (*mongo.DeleteResult, error) {
 
 	filter := bson.M{"_id": obID}
 
-	todoCollection := database.GetCollection("todos")
+	todoCollection := database.GetTodoCollection()
 
 	result, err := todoCollection.DeleteOne(ctx, filter)
 
@@ -83,7 +84,7 @@ func DeleteToDo(id string) (*mongo.DeleteResult, error) {
 }
 
 // get task based on id
-func GetTodo(id string) (*model.ToDo, error) {
+func GetTodo(id string, userId string) (*model.ToDo, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -93,22 +94,27 @@ func GetTodo(id string) (*model.ToDo, error) {
 		common.HandleError(err, common.ErrorHandlerConfig{
 			PrintStackTrace: true,
 		})
-		return nil, err
+		return nil, fmt.Errorf("invalid id")
 	}
 
 	// Create a filter to search for the document by _id
-	filter := bson.M{"_id": objID}
+	filter := bson.M{"_id": objID, "userId": userId}
 
 	// Find the document and decode it into the ToDo struct
 	var todo *model.ToDo
-	todoCollection := database.GetCollection("todos")
+	todoCollection := database.GetTodoCollection()
 	err = todoCollection.FindOne(ctx, filter).Decode(&todo)
 	if err != nil {
 		common.HandleError(err)
 		if err == mongo.ErrNoDocuments {
-			return nil, nil
+			return nil, fmt.Errorf("unable to find todo")
 		}
-		return nil, err
+		return nil, fmt.Errorf("unable to find todo")
+	}
+
+	if todo == nil {
+		common.HandleError(fmt.Errorf("no todo found"))
+		return nil, fmt.Errorf("no todo found")
 	}
 
 	return todo, err
@@ -118,7 +124,7 @@ func GetAllToDos() ([]primitive.M, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
-	todoCollection := database.GetCollection("todos")
+	todoCollection := database.GetTodoCollection()
 	cursor, err := todoCollection.Find(ctx, bson.D{{}})
 	if err != nil {
 		common.HandleError(err)
@@ -154,7 +160,7 @@ func CreateOneTodo(todo *model.ToDo) error {
 	todo.ID = primitive.NewObjectID()
 	todo.AddedOn = time.Now()
 
-	todoCollection := database.GetCollection("todos")
+	todoCollection := database.GetTodoCollection()
 	_, err := todoCollection.InsertOne(ctx, todo)
 
 	if err != nil {

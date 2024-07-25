@@ -2,7 +2,9 @@ package helpers
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -91,7 +93,8 @@ func ValidateToken(clientToken string) (claims *SignedDetails, err error) {
 	token, err := jwt.ParseWithClaims(clientToken, &SignedDetails{}, func(t *jwt.Token) (interface{}, error) { return []byte(SECRET_KEY), nil })
 
 	if err != nil {
-		return nil, err
+		common.HandleError(err)
+		return nil, fmt.Errorf("invalid token")
 	}
 
 	claims, ok := token.Claims.(*SignedDetails)
@@ -105,4 +108,23 @@ func ValidateToken(clientToken string) (claims *SignedDetails, err error) {
 	}
 
 	return claims, nil
+}
+
+// Extracts the token from the request header
+func ExtractToken(r *http.Request) (string, error) {
+	// validate header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return "", fmt.Errorf("auth header is missing")
+	}
+	fmt.Println(authHeader)
+
+	// extract token
+	parts := strings.Split(authHeader, " ")
+	fmt.Println(parts)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "", fmt.Errorf("auth header must be in format `Bearer {token}`")
+	}
+
+	return parts[1], nil
 }

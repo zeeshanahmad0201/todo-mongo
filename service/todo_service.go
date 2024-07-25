@@ -6,22 +6,38 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/zeeshanahmad0201/todo-mongo/controller"
+	"github.com/zeeshanahmad0201/todo-mongo/helpers"
 	"github.com/zeeshanahmad0201/todo-mongo/model"
 )
 
 func GetOneTodo(w http.ResponseWriter, r *http.Request) {
+
+	token, err := helpers.ExtractToken(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	claims, err := helpers.ValidateToken(token)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	vars := mux.Vars(r)
 
 	id := vars["id"]
 
-	todo, err := controller.GetTodo(id)
+	todo, err := controller.GetTodo(id, claims.UserId)
 	if err != nil {
-		http.Error(w, "Unable to find todo", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if todo == nil {
-		http.Error(w, "No Todo Found!", http.StatusNotFound)
+		http.Error(w, "no todo found!", http.StatusNotFound)
 		return
 	}
 
