@@ -12,14 +12,7 @@ import (
 
 func GetOneTodo(w http.ResponseWriter, r *http.Request) {
 
-	token, err := helpers.ExtractToken(r)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	claims, err := helpers.ValidateToken(token)
+	claims, err := helpers.ExtractAndValidateToken(r)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -46,8 +39,20 @@ func GetOneTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAllToDos(w http.ResponseWriter, r *http.Request) {
-	todos, err := controller.GetAllToDos()
+
+	claims, err := helpers.ExtractAndValidateToken(r)
+
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	todos, err := controller.GetAllToDos(claims.UserId)
+	if err != nil {
+		if err.Error() == "mongo: no documents in result" {
+			http.Error(w, "No todos added yet!", http.StatusNotFound)
+			return
+		}
 		http.Error(w, "Unable to fetch data at this time", http.StatusInternalServerError)
 		return
 	}
@@ -99,6 +104,14 @@ func UpdateOneToDo(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteOneTodo(w http.ResponseWriter, r *http.Request) {
+
+	claims, err := helpers.ExtractAndValidateToken(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	// extract the id from url
 	vars := mux.Vars(r)
 
@@ -110,7 +123,7 @@ func DeleteOneTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// delete todo
-	result, err := controller.DeleteToDo(id)
+	result, err := controller.DeleteToDo(id, claims.UserId)
 
 	if err != nil {
 		http.Error(w, "Unable to delete todo!", http.StatusInternalServerError)
@@ -126,9 +139,17 @@ func DeleteOneTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateOneTodo(w http.ResponseWriter, r *http.Request) {
+
+	claims, err := helpers.ExtractAndValidateToken(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	var todo *model.ToDo
 
-	err := json.NewDecoder(r.Body).Decode(&todo)
+	err = json.NewDecoder(r.Body).Decode(&todo)
 
 	if err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
@@ -139,6 +160,8 @@ func CreateOneTodo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Title can't be empty", http.StatusBadRequest)
 		return
 	}
+
+	todo.UserID = claims.UserId
 
 	err = controller.CreateOneTodo(todo)
 

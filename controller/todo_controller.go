@@ -54,7 +54,7 @@ func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 }
 
 // delete the todo by task id
-func DeleteToDo(id string) (*mongo.DeleteResult, error) {
+func DeleteToDo(id string, userId string) (*mongo.DeleteResult, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 
@@ -68,7 +68,7 @@ func DeleteToDo(id string) (*mongo.DeleteResult, error) {
 		return nil, err
 	}
 
-	filter := bson.M{"_id": obID}
+	filter := bson.M{"_id": obID, "userId": userId}
 
 	todoCollection := database.GetTodoCollection()
 
@@ -120,7 +120,7 @@ func GetTodo(id string, userId string) (*model.ToDo, error) {
 	return todo, err
 }
 
-func GetAllToDos() ([]primitive.M, error) {
+func GetAllToDos(userId string) ([]primitive.M, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
 	defer cancel()
 

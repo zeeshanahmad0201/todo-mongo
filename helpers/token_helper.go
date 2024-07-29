@@ -128,3 +128,18 @@ func ExtractToken(r *http.Request) (string, error) {
 
 	return parts[1], nil
 }
+
+// Extract and Validate the token
+func ExtractAndValidateToken(r *http.Request) (*SignedDetails, error) {
+	token, err := ExtractToken(r)
+	if err != nil {
+		return nil, err
+	}
+
+	claims, err := ValidateToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return claims, nil
+}
