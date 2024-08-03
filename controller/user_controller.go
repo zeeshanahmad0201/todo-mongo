@@ -1,98 +1,68 @@
 package controller
 
 import (
-	"fmt"
-	"time"
+	"encoding/json"
+	"net/http"
+	"strings"
 
-	"github.com/zeeshanahmad0201/todo-mongo/common"
-	"github.com/zeeshanahmad0201/todo-mongo/database"
-	"github.com/zeeshanahmad0201/todo-mongo/helpers"
+	"github.com/go-playground/validator/v10"
 	"github.com/zeeshanahmad0201/todo-mongo/model"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/zeeshanahmad0201/todo-mongo/service"
 )
 
-func SignUp(user *model.User) error {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
-
-	userCollection := database.GetCollection("users")
-
-	// Check if email already exists
-	emailFilter := bson.M{"email": user.Email}
-	count, err := userCollection.CountDocuments(ctx, emailFilter)
+func Login(w http.ResponseWriter, r *http.Request) {
+	var user *model.User
+	err := json.NewDecoder(r.Body).Decode(&user)
 
 	if err != nil {
-		common.HandleError(err)
-		return fmt.Errorf("error checking email existence: %w", err)
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
 	}
 
-	if count > 0 {
-		err := fmt.Errorf("email already exists")
-		common.HandleError(err)
-		return err
+	if user.Email == nil || user.Password == nil || *user.Email == "" || *user.Password == "" {
+		http.Error(w, "Email and password are required", http.StatusBadRequest)
+		return
 	}
 
-	// Hash password
-	hashedPassword := helpers.HashPassword(*user.Password)
-	user.Password = &hashedPassword
+	foundUser, err := service.Login(user)
 
-	// Set timestamps
-	user.AddedOn = *common.GetCurrentTimeStamp()
-	user.UpdatedOn = *common.GetCurrentTimeStamp()
-
-	// Generate IDs and tokens
-	user.ID = primitive.NewObjectID()
-	user.UserID = user.ID.Hex()
-	token, refreshToken, err := helpers.GenerateTokens(*user.Name, *user.Email, user.UserID)
 	if err != nil {
-
-		return fmt.Errorf("error generating tokens: %w", err)
-	}
-	user.Token = &token
-	user.RefreshToken = &refreshToken
-
-	// Insert user into database
-	_, err = userCollection.InsertOne(ctx, user)
-	if err != nil {
-		return fmt.Errorf("error inserting user: %w", err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
 
-	return nil
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(foundUser)
 }
 
-func Login(user *model.User) (*model.User, error) {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
+func SignUp(w http.ResponseWriter, r *http.Request) {
+	var user model.User
 
-	userCollection := database.GetCollection("users")
-
-	var foundUser *model.User
-
-	filter := bson.M{"email": user.Email}
-	err := userCollection.FindOne(ctx, filter).Decode(&foundUser)
-
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		common.HandleError(err)
-		return nil, fmt.Errorf("invalid email/password")
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
 	}
 
-	validPass, err := helpers.VerifyPassword(user.Password, foundUser.Password)
+	validate := validator.New()
 
-	if !validPass {
-		common.HandleError(err)
-		return nil, fmt.Errorf("invalid email/password")
+	if err := validate.Struct(user); err != nil {
+		var validationErrors []string
+		for _, err := range err.(validator.ValidationErrors) {
+			validationErrors = append(validationErrors, err.Error())
+		}
+		http.Error(w, "Validation failed: "+strings.Join(validationErrors, ", "), http.StatusBadRequest)
+		return
 	}
 
-	token, refreshToken, err := helpers.GenerateTokens(*foundUser.Name, *foundUser.Email, foundUser.UserID)
-
+	err = service.SignUp(&user)
 	if err != nil {
-		common.HandleError(err)
-		return nil, fmt.Errorf("something went wrong, please try again later")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	helpers.UpdateAllTokens(token, refreshToken, foundUser.UserID)
-
-	return foundUser, nil
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "User created successfully"})
 }

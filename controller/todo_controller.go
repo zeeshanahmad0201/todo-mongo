@@ -1,157 +1,183 @@
 package controller
 
 import (
-	"fmt"
-	"time"
+	"encoding/json"
+	"net/http"
 
-	"github.com/zeeshanahmad0201/todo-mongo/common"
-	"github.com/zeeshanahmad0201/todo-mongo/database"
+	"github.com/gorilla/mux"
+	"github.com/zeeshanahmad0201/todo-mongo/helpers"
 	"github.com/zeeshanahmad0201/todo-mongo/model"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/zeeshanahmad0201/todo-mongo/service"
 )
 
-// update existing ToDo in the collection
-func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
+func GetOneTodo(w http.ResponseWriter, r *http.Request) {
 
-	todoCollection := database.GetTodoCollection()
-
-	filter := bson.M{"_id": todo.ID, "userId": todo.UserID}
-	todo.UpdatedOn = time.Now()
-	update := bson.M{"$set": todo}
-
-	result, err := todoCollection.UpdateOne(ctx, filter, update)
+	claims, err := helpers.ExtractAndValidateToken(r)
 
 	if err != nil {
-		common.HandleError(err, common.ErrorHandlerConfig{
-			PrintStackTrace: true,
-		})
-		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("no todo found")
-		}
-		return nil, err
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
 
-	return result, nil
-}
+	vars := mux.Vars(r)
 
-// delete the todo by task id
-func DeleteToDo(id string, userId string) (*mongo.DeleteResult, error) {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
+	id := vars["id"]
 
-	// convert id string to ObjectID
-	obID, err := primitive.ObjectIDFromHex(id)
-
+	todo, err := service.GetTodo(id, claims.UserId)
 	if err != nil {
-		common.HandleError(err, common.ErrorHandlerConfig{
-			PrintStackTrace: true,
-		})
-		return nil, err
-	}
-
-	filter := bson.M{"_id": obID, "userId": userId}
-
-	todoCollection := database.GetTodoCollection()
-
-	result, err := todoCollection.DeleteOne(ctx, filter)
-
-	if err != nil {
-		common.HandleError(err, common.ErrorHandlerConfig{
-			PrintStackTrace: true,
-		})
-		return nil, err
-	}
-	return result, nil
-}
-
-// get task based on id
-func GetTodo(id string, userId string) (*model.ToDo, error) {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
-
-	// Convert the string ID to ObjectID
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		common.HandleError(err, common.ErrorHandlerConfig{
-			PrintStackTrace: true,
-		})
-		return nil, fmt.Errorf("invalid id")
-	}
-
-	// Create a filter to search for the document by _id
-	filter := bson.M{"_id": objID, "userId": userId}
-
-	// Find the document and decode it into the ToDo struct
-	var todo *model.ToDo
-	todoCollection := database.GetTodoCollection()
-	err = todoCollection.FindOne(ctx, filter).Decode(&todo)
-	if err != nil {
-		common.HandleError(err)
-		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("unable to find todo")
-		}
-		return nil, fmt.Errorf("unable to find todo")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	if todo == nil {
-		common.HandleError(fmt.Errorf("no todo found"))
-		return nil, fmt.Errorf("no todo found")
+		http.Error(w, "no todo found!", http.StatusNotFound)
+		return
 	}
 
-	return todo, err
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(todo)
 }
 
-func GetAllToDos(userId string) ([]primitive.M, error) {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
+func GetAllToDos(w http.ResponseWriter, r *http.Request) {
 
-	todoCollection := database.GetTodoCollection()
-	cursor, err := todoCollection.Find(ctx, bson.D{{}})
+	claims, err := helpers.ExtractAndValidateToken(r)
+
 	if err != nil {
-		common.HandleError(err)
-		return nil, err
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
 
-	defer cursor.Close(ctx)
-
-	var todos []primitive.M
-
-	for cursor.Next(ctx) {
-		var todo bson.M
-		err := cursor.Decode(&todo)
-		if err != nil {
-			return nil, err
+	todos, err := service.GetAllToDos(claims.UserId)
+	if err != nil {
+		if err.Error() == "mongo: no documents in result" {
+			http.Error(w, "No todos added yet!", http.StatusNotFound)
+			return
 		}
-		todos = append(todos, todo)
+		http.Error(w, "Unable to fetch data at this time", http.StatusInternalServerError)
+		return
 	}
 
-	// check for error that may have occured during iteration
-	if err := cursor.Err(); err != nil {
-		common.HandleError(err)
-		return nil, err
+	if len(todos) == 0 {
+		http.Error(w, "No todos added yet!", http.StatusNotFound)
+		return
 	}
 
-	return todos, nil
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(todos); err != nil {
+		http.Error(w, "Error parsing data", http.StatusInternalServerError)
+	}
 }
 
-func CreateOneTodo(todo *model.ToDo) error {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
+func UpdateOneToDo(w http.ResponseWriter, r *http.Request) {
 
-	todo.ID = primitive.NewObjectID()
-	todo.AddedOn = time.Now()
-
-	todoCollection := database.GetTodoCollection()
-	_, err := todoCollection.InsertOne(ctx, todo)
+	claims, err := helpers.ExtractAndValidateToken(r)
 
 	if err != nil {
-		common.HandleError(err)
-		return err
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
 
-	return nil
+	// extract id from url
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	if id == "" {
+		http.Error(w, "id parameter is missing!", http.StatusBadRequest)
+		return
+	}
+
+	// extract data from body
+	var todo *model.ToDo
+	err = json.NewDecoder(r.Body).Decode(&todo)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// set id in todo
+	todo.UserID = claims.UserId
+
+	// update todo
+	result, err := service.UpdateToDo(todo)
+
+	if err != nil {
+		http.Error(w, "Unable to update ToDo", http.StatusInternalServerError)
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		http.Error(w, "No matching todos found!", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func DeleteOneTodo(w http.ResponseWriter, r *http.Request) {
+
+	claims, err := helpers.ExtractAndValidateToken(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// extract the id from url
+	vars := mux.Vars(r)
+
+	id := vars["id"]
+
+	if id == "" {
+		http.Error(w, "id parameter is missing!", http.StatusBadRequest)
+		return
+	}
+
+	// delete todo
+	result, err := service.DeleteToDo(id, claims.UserId)
+
+	if err != nil {
+		http.Error(w, "Unable to delete todo!", http.StatusInternalServerError)
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		http.Error(w, "No matching todo found!", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(result)
+}
+
+func CreateOneTodo(w http.ResponseWriter, r *http.Request) {
+
+	claims, err := helpers.ExtractAndValidateToken(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var todo *model.ToDo
+
+	err = json.NewDecoder(r.Body).Decode(&todo)
+
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if todo.Title == "" {
+		http.Error(w, "Title can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	todo.UserID = claims.UserId
+
+	err = service.CreateOneTodo(todo)
+
+	if err != nil {
+		http.Error(w, "Unable to add todo", http.StatusInternalServerError)
+		return
+	}
 }
