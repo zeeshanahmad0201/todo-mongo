@@ -12,24 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// add new ToDo in the collection
-func AddTodo(todo *model.ToDo) string {
-	ctx, cancel := common.CreateContext(10 * time.Second)
-	defer cancel()
-
-	todoCollection := database.GetTodoCollection()
-
-	_, err := todoCollection.InsertOne(ctx, todo)
-
-	if err != nil {
-		common.HandleError(err, common.ErrorHandlerConfig{
-			PrintStackTrace: true,
-		})
-		return "Unable to add Task"
-	}
-	return "Task added successfully"
-}
-
 // update existing ToDo in the collection
 func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 	ctx, cancel := common.CreateContext(10 * time.Second)
@@ -37,7 +19,7 @@ func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 
 	todoCollection := database.GetTodoCollection()
 
-	filter := bson.M{"_id": todo.ID}
+	filter := bson.M{"_id": todo.ID, "userId": todo.UserID}
 	todo.UpdatedOn = time.Now()
 	update := bson.M{"$set": todo}
 
@@ -47,6 +29,9 @@ func UpdateToDo(todo *model.ToDo) (*mongo.UpdateResult, error) {
 		common.HandleError(err, common.ErrorHandlerConfig{
 			PrintStackTrace: true,
 		})
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("no todo found")
+		}
 		return nil, err
 	}
 

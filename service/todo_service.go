@@ -69,6 +69,14 @@ func GetAllToDos(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateOneToDo(w http.ResponseWriter, r *http.Request) {
+
+	claims, err := helpers.ExtractAndValidateToken(r)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	// extract id from url
 	vars := mux.Vars(r)
 	id := vars["id"]
@@ -80,11 +88,14 @@ func UpdateOneToDo(w http.ResponseWriter, r *http.Request) {
 
 	// extract data from body
 	var todo *model.ToDo
-	err := json.NewDecoder(r.Body).Decode(&todo)
+	err = json.NewDecoder(r.Body).Decode(&todo)
 	if err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+
+	// set id in todo
+	todo.UserID = claims.UserId
 
 	// update todo
 	result, err := controller.UpdateToDo(todo)
