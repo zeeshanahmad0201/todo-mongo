@@ -12,7 +12,6 @@
 - [Project Structure](#project-structure)
 - [Technologies](#technologies-used)
 - [Contributing](#contributing)
-- [License](#license)
 - [Contact](#contact)
 
 ## Features
